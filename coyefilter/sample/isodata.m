@@ -1,5 +1,5 @@
 
-function level=isodata(I)
+function level=isodata(I, Threshold)
 %   ISODATA Compute global image threshold using iterative isodata method.
 %   LEVEL = ISODATA(I) computes a global threshold (LEVEL) that can be
 %   used to convert an intensity image to a binary image with IM2BW. LEVEL
@@ -51,7 +51,6 @@ MAT=sum(N(T(i):end).*counts(T(i):end))/mu3(end);
 i=i+1;
 % new T = (MAT+MBT)/2
 T(i)=round((MAT+MBT)/2);
-
 % STEP 3 to n: repeat step 2 if T(i)~=T(i-1)
 while abs(T(i)-T(i-1))>=1
     mu2=cumsum(counts(1:T(i)));
