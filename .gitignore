@@ -2,3 +2,5 @@
 *.png
 *~
 *.jpeg
+*.exe
+color_filter
