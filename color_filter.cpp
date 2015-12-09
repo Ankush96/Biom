@@ -14,7 +14,10 @@
 using namespace cv;
 using namespace std;
 
-int cr_min=126,cr_max=175,cb_min=99,cb_max=130,kernel=8;
+int cr_min=126, cr_max=175, cb_min=99, cb_max=130;
+int H_thresh=17, tol=3, S_min=0, S_max=196, V_min=0, V_max=170;
+int B_min=0, B_max=255, G_min=0, G_max=255, R_min=0, R_max=255;
+
 vector<Mat> images;
 vector<int> labels;
 
@@ -46,9 +49,9 @@ void dir_read(string root,int num,vector<Mat>& images = ::images,vector<int>& la
 }
 
 bool R1(int R, int G, int B) {
-    bool e1 = (R>95) && (G>40) && (B>20) && ((max(R,max(G,B)) - min(R, min(G,B)))>15) && (abs(R-G)>15) && (R>G) && (R>B);
-    bool e2 = (R>220) && (G>210) && (B>170) && (abs(R-G)<=15) && (R>B) && (G>B);
-    return (e1||e2);
+    bool e1 = ((R >= R_min) && (G >= G_min) && (B >= B_min));
+    bool e2 = ((R <= R_max) && (G <= G_max) && (B <= B_max));
+    return (e1 && e2);
 }
 
 bool R2(float Y, float Cr, float Cb) {
@@ -60,10 +63,68 @@ bool R2(float Y, float Cr, float Cb) {
 }
 
 bool R3(float H, float S, float V){
+    bool e1 = ((S >= S_min) && (V >= V_min));
+    bool e2 = ((S <= S_max) && (V <= V_max));
+    bool e3 = ((H >= (H_thresh - tol + 180)%180) && (H <= (H_thresh + tol)%180));
+    return (e1 && e2 && e3);
+}
+Mat segment_rgb(Mat const &src) {
+    Mat dst = src.clone();
+    Vec3b cwhite = Vec3b::all(255);
+    Vec3b cblack = Vec3b::all(0);
 
-    return (H<25) || (H > 230);
+    for(int i = 0; i < src.rows; i++) {
+        for(int j = 0; j < src.cols; j++) {
+
+            //  Uncomment the following section for using RGB thresholds
+
+            Vec3b pix_bgr = src.ptr<Vec3b>(i)[j];
+            int B = pix_bgr.val[0];
+            int G = pix_bgr.val[1];
+            int R = pix_bgr.val[2];
+            // apply rgb rule
+            bool a = R1(R,G,B);
+
+            if(!(a))                                    //  If values not within thresholds
+                dst.ptr<Vec3b>(i)[j] = cblack;          //  Appoint black color
+            else
+                dst.ptr<Vec3b>(i)[j] = cwhite;          //  Else white
+        }
+    }
+    return dst;                                         //  Return Bitmap of facial region
 }
 
+Mat segment_hsv(Mat const &src) {
+    Mat dst = src.clone();
+    Vec3b cwhite = Vec3b::all(255);
+    Vec3b cblack = Vec3b::all(0);
+
+    Mat src_hsv;
+
+    cvtColor(src, src_hsv, CV_BGR2HSV);
+
+    for(int i = 0; i < src.rows; i++) {
+        for(int j = 0; j < src.cols; j++) {
+
+            //  Uncomment the following section for using HSV thresholds
+
+            Vec3b pix_hsv = src_hsv.ptr<Vec3b>(i)[j];
+            int H = pix_hsv.val[0];
+            int S = pix_hsv.val[1];
+            int V = pix_hsv.val[2];
+            // apply hsv rule
+            bool c = R3(H,S,V);
+
+            //----------------------------------------//
+
+            if(!(c))                                    //  If values not within thresholds
+                dst.ptr<Vec3b>(i)[j] = cblack;          //  Appoint black color
+            else
+                dst.ptr<Vec3b>(i)[j] = cwhite;          //  Else white
+        }
+    }
+    return dst;
+}
 
 Mat segment_ycrcb(Mat const &src) {
     Mat dst = src.clone();
@@ -71,36 +132,10 @@ Mat segment_ycrcb(Mat const &src) {
     Vec3b cblack = Vec3b::all(0);
 
     Mat src_ycrcb, src_hsv;
-    // OpenCV scales the YCrCb components, so that they
-    // cover the whole value range of [0,255], so there's
-    // no need to scale the values:
     cvtColor(src, src_ycrcb, CV_BGR2YCrCb);
-    // OpenCV scales the Hue Channel to [0,180] for
-    // 8bit images, so make sure we are operating on
-    // the full spectrum from [0,360] by using floating
-    // point precision:
-
-    //src.convertTo(src_hsv, CV_32FC3);
-    //cvtColor(src_hsv, src_hsv, CV_BGR2HSV);
-
-    // Now scale the values between [0,255]:
-    //normalize(src_hsv, src_hsv, 0.0, 255.0, NORM_MINMAX, CV_32FC3);
 
     for(int i = 0; i < src.rows; i++) {
         for(int j = 0; j < src.cols; j++) {
-
-            //  Uncomment the following section for using RGB thresholds
-
-            // Vec3b pix_bgr = src.ptr<Vec3b>(i)[j];
-            // int B = pix_bgr.val[0];
-            // int G = pix_bgr.val[1];
-            // int R = pix_bgr.val[2];
-            // // apply rgb rule
-            // bool a = R1(R,G,B);
-
-            //----------------------------------------//
-
-            //  The following section is for YCrCb thresholding
 
             Vec3b pix_ycrcb = src_ycrcb.ptr<Vec3b>(i)[j];
             int Y = pix_ycrcb.val[0];
@@ -109,56 +144,58 @@ Mat segment_ycrcb(Mat const &src) {
             //  Apply ycrcb rule
             bool b = R2(Y,Cr,Cb);
 
-            //  Uncomment the following section for using HSV thresholds
-
-            // Vec3f pix_hsv = src_hsv.ptr<Vec3f>(i)[j];
-            // float H = pix_hsv.val[0];
-            // float S = pix_hsv.val[1];
-            // float V = pix_hsv.val[2];
-            // // apply hsv rule
-            // bool c = R3(H,S,V);
-
-            //----------------------------------------//
-
-            if(!(b))                                    //  If values not within thresholds
-                dst.ptr<Vec3b>(i)[j] = cblack;          //  Appoint black color
+            if(!(b))                                    
+                dst.ptr<Vec3b>(i)[j] = cblack;          
             else
-                dst.ptr<Vec3b>(i)[j] = cwhite;          //  Else white
+                dst.ptr<Vec3b>(i)[j] = cwhite;          
         }
     }
-    //namedWindow("Stage1",WINDOW_NORMAL);
-    //imshow("Stage1",dst);
-    //imwrite("s1.jpg",dst);
-    //waitKey(0);
-    return dst;                                         //  Return Bitmap of facial region
+    return dst;                                         
 }
+
 
 int main()
 {
     dir_read("../Data/",30);
     cvNamedWindow("src",WINDOW_NORMAL);
-    cvNamedWindow("dst",WINDOW_NORMAL);
+    cvNamedWindow("rgb",WINDOW_NORMAL);
+    cvNamedWindow("hsv",WINDOW_NORMAL);
+    cvNamedWindow("ycrcb",WINDOW_NORMAL);
 
-    createTrackbar("cr min ","dst",&cr_min,255);
-    createTrackbar("cr max ","dst",&cr_max,255);
-    createTrackbar("cb min ","dst",&cb_min,255);
-    createTrackbar("cb max ","dst",&cb_max,255);
+    createTrackbar("cr min ","ycrcb",&cr_min,255);
+    createTrackbar("cr max ","ycrcb",&cr_max,255);
+    createTrackbar("cb min ","ycrcb",&cb_min,255);
+    createTrackbar("cb max ","ycrcb",&cb_max,255);
+
+
+    createTrackbar("r min ","rgb",&R_min,255);
+    createTrackbar("r max ","rgb",&R_max,255);
+    createTrackbar("g min ","rgb",&G_min,255);
+    createTrackbar("g max ","rgb",&G_max,255);
+    createTrackbar("b min ","rgb",&B_min,255);
+    createTrackbar("b max ","rgb",&B_max,255);
+
+
+    createTrackbar("h threshold ","hsv",&H_thresh,180);
+    createTrackbar("h tolerance ","hsv",&tol,90);
+    createTrackbar("s min ","hsv",&S_min,255);
+    createTrackbar("s max ","hsv",&S_max,255);
+    createTrackbar("v min ","hsv",&V_min,255);
+    createTrackbar("v max ","hsv",&V_max,255);
 
     
     for(int i=0; i<images.size(); i++)
     {
-        //imshow("Input",images[i]);
-        //waitKey(0);
+        int key;
         Mat src = images[i];
         imshow("src",src);
-        while(1)
-            {
-                Mat dst = segment_ycrcb(src);
-                imshow("dst",dst);
-                int key = cv::waitKey(0);
-                if(key==32)break;
-                if(key==27)return 0;
-            }
+        do{
+            imshow("rgb", segment_rgb(src));
+            imshow("hsv", segment_hsv(src));
+            imshow("ycrcb", segment_ycrcb(src));
+
+            key = cv::waitKey(30);
+        }while(key<=0);
     }
     return 0;
 }
