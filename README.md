@@ -1,2 +1,2 @@
-# Sclara
-A package for Sclara based Biometrics
+# Sclera
+A package for Sclera based Biometrics
