@@ -64,20 +64,8 @@ bool R3(float H, float S, float V){
     return (H<25) || (H > 230);
 }
 
-/*
 
-    ******************************   Stage 1 of segmentation *****************************
-    *   The first step converts an input image into the YCrCb colorspace.
-    *   Options for converting into other color spaces are available (uncomment accordingly)
-    *   If a pixel lies within the thresholds of the given colorspace, it is mapped
-    *   to a white pixel, else it is mapped to a black pixel.
-
-    *   Input  -> A color image that needs to be segmented
-    *   Output -> A bitmap(3-channel) of facial region.
-    **************************************************************************************
-
-*/
-Mat stage1(Mat const &src) {
+Mat segment_ycrcb(Mat const &src) {
     Mat dst = src.clone();
     Vec3b cwhite = Vec3b::all(255);
     Vec3b cblack = Vec3b::all(0);
@@ -148,12 +136,29 @@ Mat stage1(Mat const &src) {
 int main()
 {
     dir_read("../Data/",30);
-    namedWindow("Input",WINDOW_NORMAL);
+    cvNamedWindow("src",WINDOW_NORMAL);
+    cvNamedWindow("dst",WINDOW_NORMAL);
+
+    createTrackbar("cr min ","dst",&cr_min,255);
+    createTrackbar("cr max ","dst",&cr_max,255);
+    createTrackbar("cb min ","dst",&cb_min,255);
+    createTrackbar("cb max ","dst",&cb_max,255);
+
     
     for(int i=0; i<images.size(); i++)
     {
-        imshow("Input",images[i]);
-        waitKey(0);
+        //imshow("Input",images[i]);
+        //waitKey(0);
+        Mat src = images[i];
+        imshow("src",src);
+        while(1)
+            {
+                Mat dst = segment_ycrcb(src);
+                imshow("dst",dst);
+                int key = cv::waitKey(0);
+                if(key==32)break;
+                if(key==27)return 0;
+            }
     }
     return 0;
 }
