@@ -46,6 +46,12 @@ imshow(handles.current_img);
 
 axes(handles.axes2);
 imshow(handles.current_hsv);
+handles.H_val = 0;
+handles.H_tol = 90;
+handles.S_min = 0;
+handles.S_max = 255;
+handles.V_min = 0;
+handles.V_max = 255;
 
 axes(handles.axes3);
 imshow(handles.current_ycbcr);
@@ -88,6 +94,8 @@ Cek(hObject, eventdata, handles);
 handles.current_img = imread(handles.X{handles.index});
 imshow(handles.current_img);
 rgb_filter(hObject, eventdata, handles);
+hsv_filter(hObject, eventdata, handles);
+ycbcr_filter(hObject, eventdata, handles);
 guidata(hObject, handles);
 
 function pushbutton2_Callback(hObject, eventdata, handles)
@@ -98,6 +106,8 @@ Cek(hObject, eventdata, handles);
 handles.current_img = imread(handles.X{handles.index});
 imshow(handles.current_img);
 rgb_filter(hObject, eventdata, handles);
+hsv_filter(hObject, eventdata, handles);
+ycbcr_filter(hObject, eventdata, handles);
 guidata(hObject, handles);
 
 % --- Checks if RGB values are within the RGB thresholds in SLider and puts
@@ -113,6 +123,35 @@ for i=1:3
 end
 axes(handles.axes4);
 imshow(handles.current_rgb);
+guidata(hObject, handles);
+
+function hsv_filter(hObject, eventdata, handles)
+handles.output = hObject;
+handles.current_hsv = handles.current_img;
+h = im2uint8(rgb2hsv(handles.current_img));
+v = handles.H_val;
+t = handles.H_tol;
+ranges = [handles.S_min, handles.S_max, handles.V_min, handles.V_max];
+for i=2:3
+    for k=1:3
+        handles.current_hsv(:,:,k) = handles.current_hsv(:,:,k).*uint8(inrange(h(:,:,i), ranges(2*i-3), ranges(2*i-2)));
+    end
+end
+if (v-t)>=0 && (v+t)<=180
+    for k=1:3
+        handles.current_hsv(:,:,k) = handles.current_hsv(:,:,k).*uint8(inrange(h(:,:,1), v-t, v+t));
+    end
+elseif (v-t)<0
+    for k=1:3
+        handles.current_hsv(:,:,k) = handles.current_hsv(:,:,k).*uint8(inrange(h(:,:,1), 0, v+t)|inrange(h(:,:,1), mod(v-t,180), 180));
+    end
+elseif (v+t)>180   
+    for k=1:3
+        handles.current_hsv(:,:,k) = handles.current_hsv(:,:,k).*uint8(inrange(h(:,:,1), 0, mod(v+t,180))|inrange(h(:,:,1), v-t, 180));
+    end
+end
+axes(handles.axes2);
+imshow(handles.current_hsv);
 guidata(hObject, handles);
 
 function ycbcr_filter(hObject, eventdata, handles)
@@ -393,7 +432,6 @@ end
 function B_max_slider_Callback(hObject, eventdata, handles)
 handles.B_max = round(get(hObject,'Value'));
 rgb_filter(hObject, eventdata, handles);
-
 set(handles.B_max_edit,'String',int2str(handles.B_max));
 guidata(hObject, handles);
 
@@ -418,6 +456,173 @@ function Cb_max_slider_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+
+function H_val_edit_Callback(hObject, eventdata, handles)
+handles.H_val = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.H_val_slider, 'Value', handles.H_val);
+guidata(hObject, handles);
+
+function H_val_edit_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function vvvv_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to vvvv (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function H_tol_edit_Callback(hObject, eventdata, handles)
+handles.H_tol = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.H_tol_slider, 'Value', handles.H_tol);
+guidata(hObject, handles);
+
+function H_tol_edit_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function S_min_edit_Callback(hObject, eventdata, handles)
+handles.S_min = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.S_min_slider, 'Value', handles.S_min);
+guidata(hObject, handles);
+
+function S_min_edit_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function S_max_edit_Callback(hObject, eventdata, handles)
+handles.S_max = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.S_max_slider, 'Value', handles.S_max);
+guidata(hObject, handles);
+
+function S_max_edit_CreateFcn(hObject, eventdata, handles)
+
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function V_min_edit_Callback(hObject, eventdata, handles)
+handles.V_min = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.V_min_slider, 'Value', handles.V_min);
+guidata(hObject, handles);
+
+function V_min_edit_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on slider movement.
+function H_val_slider_Callback(hObject, eventdata, handles)
+handles.H_val = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.H_val_edit,'String',int2str(handles.H_val));
+guidata(hObject, handles);
+
+% --- Executes during object creation, after setting all properties.
+function H_val_slider_CreateFcn(hObject, eventdata, handles)
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+% --- Executes on slider movement.
+function S_min_slider_Callback(hObject, eventdata, handles)
+handles.S_min = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.S_min_edit,'String',int2str(handles.S_min));
+guidata(hObject, handles);
+
+function S_min_slider_CreateFcn(hObject, eventdata, handles)
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+% --- Executes on slider movement.
+function S_max_slider_Callback(hObject, eventdata, handles)
+handles.S_max = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.S_max_edit,'String',int2str(handles.S_max));
+guidata(hObject, handles);
+
+function S_max_slider_CreateFcn(hObject, eventdata, handles)
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+% --- Executes on slider movement.
+function V_min_slider_Callback(hObject, eventdata, handles)
+handles.V_min = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.V_min_edit,'String',int2str(handles.V_min));
+guidata(hObject, handles);
+
+function V_min_slider_CreateFcn(hObject, eventdata, handles)
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+% --- Executes on slider movement.
+function H_tol_slider_Callback(hObject, eventdata, handles)
+handles.H_tol = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.H_tol_edit,'String',int2str(handles.H_tol));
+guidata(hObject, handles);
+
+function H_tol_slider_CreateFcn(hObject, eventdata, handles)
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
+
+function V_max_edit_Callback(hObject, eventdata, handles)
+handles.V_max = round(str2num(get(hObject,'String')));
+hsv_filter(hObject, eventdata, handles);
+set(handles.V_max_slider, 'Value', handles.V_max);
+guidata(hObject, handles);
+
+function V_max_edit_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on slider movement.
+function V_max_slider_Callback(hObject, eventdata, handles)
+handles.V_max = round(get(hObject,'Value'));
+hsv_filter(hObject, eventdata, handles);
+set(handles.V_max_edit,'String',int2str(handles.V_max));
+guidata(hObject, handles);
+
+function V_max_slider_CreateFcn(hObject, eventdata, handles)
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
