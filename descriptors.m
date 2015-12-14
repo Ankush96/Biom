@@ -25,7 +25,7 @@ b_mask = imerode(b_mask, ones(erode_threshold, erode_threshold));
 
 % Extract SURF features
 points = detectSURFFeatures(b, 'NumOctaves', numOctaves, 'NumScaleLevels', numScaleLevels);
-[features, valid_points] = extractFeatures(b, points);
+[features, valid_points] = extractFeatures(b, points,'SURFSize',128);
 
 figure; imshow(b); hold on;
 % For every point we check if it lies near the boundary. If yes then that
