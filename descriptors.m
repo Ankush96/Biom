@@ -26,25 +26,31 @@ b_mask = imerode(b_mask, ones(erode_threshold, erode_threshold));
 % Extract SURF features
 points = detectSURFFeatures(b, 'NumOctaves', numOctaves, 'NumScaleLevels', numScaleLevels);
 [features, valid_points] = extractFeatures(b, points,'SURFSize',128);
-
 figure; imshow(b); hold on;
+%fprintf('Initial size of features is %d %d \n', size(features));
+%fprintf('Initial size of valid points is %d %d \n', size(valid_points));
 % For every point we check if it lies near the boundary. If yes then that
 % point is considered invalid
-for i = 1:length(valid_points)
+%k = 0;
+i = 1;
+while(i <=length(valid_points) )   
     p = valid_points(i).Location; 
     if b_mask(round(p(2)),round(p(1))) < 0.1
         % The invalid points are plotted with red crosses
         plot(p(1), p(2), 'rx');
         valid_points(i)=[];
-        i = i-1;
+        %k = k+1;
+        features(i,:) = [];
     else
         % The valid points with green
         plot(p(1),p(2),'go');
         drawnow;
+        i = i+1;
     end
-    if i >= length(valid_points)-1;
-        break;
-    end 
 end 
+
+%fprintf('Final size of features is %d %d \n', size(features));
+%fprintf('Rejected features num is %d \n', k);
+%fprintf('Final size of valid points is %d %d\n', size(valid_points));
 pause;
 close;
