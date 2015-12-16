@@ -1,11 +1,12 @@
-function [ images, labels ] = dir_read( root )
+function [ images, labels, numDir] = dir_read( root )
 % A function that reads all the images in all subdirectories of the
 % folder location specified by root and returns the complete vector
-% of images along with their labels
+% of images along with their labels and total number of subdirectories
 
 
 folders = dir(root);  % Read the contents of root
 folders = folders(3:end, :); % Remove '.' and '..' from the array 
+numDir = size(folders, 1);
 images = cellstr(['a']);
 labels = [];
 for i = 1:size(folders,1)

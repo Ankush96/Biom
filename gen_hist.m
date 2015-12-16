@@ -1,5 +1,3 @@
-
-%% ------------------------ Function body ---------------------------
 function [histograms, Centers] = gen_hist(train_images, numClusters, features, index)
 
 histograms = zeros(length(train_images), numClusters);
@@ -15,12 +13,12 @@ if sum(sum(isnan(Centers))) >0
     fprintf('Nan in Centres\n');
 end
 idx = knnsearch(Centers, features);
-
+%% Generating histograms
 
 fprintf('Centroids found. Building histograms . . . \n');
 for i=1:length(train_images)
-    image_descriptor_count = idx(index(i):index(i+1)-1);
-    hist_image = hist(image_descriptor_count, numClusters);
+    image_clusters = idx(index(i):index(i+1)-1);
+    hist_image = hist(image_clusters, numClusters);
     histograms(i,:) = hist_image/sum(hist_image);
 end    
 fprintf('Completed !!\n');
