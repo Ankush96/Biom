@@ -1,12 +1,11 @@
 function [features, valid_points] = descriptors(I, channel, erode_threshold, numOctaves, numScaleLevels);
 
-% For Sclera images try numOctaves = 1 and numScaleLevels = 20
 if nargin<5
-    numScaleLevels = 4;  % Increse this for finer increment of scales
+    numScaleLevels = 30;  % Increse this for finer increment of scales
     if nargin < 4
-        numOctaves = 3;  % Decrease this for detecting smaller blobs
+        numOctaves = 1;  % Decrease this for detecting smaller blobs
         if nargin < 3
-            erode_threshold = 80;   % Increase this to remove more boundary area
+            erode_threshold = 100;   % Increase this to remove more boundary area
             if nargin < 2
                 channel = 3;    % 3 for blue, 2 for green, 1 for red
             end
@@ -26,7 +25,11 @@ b_mask = imerode(b_mask, ones(erode_threshold, erode_threshold));
 % Extract SURF features
 points = detectSURFFeatures(b, 'NumOctaves', numOctaves, 'NumScaleLevels', numScaleLevels);
 [features, valid_points] = extractFeatures(b, points,'SURFSize',128);
-figure; imshow(b); hold on;
+
+%% Uncomment following line and all corresponding 'plot' commands to visualise
+%figure; imshow(b); hold on;
+
+%% -----------------------------
 %fprintf('Initial size of features is %d %d \n', size(features));
 %fprintf('Initial size of valid points is %d %d \n', size(valid_points));
 % For every point we check if it lies near the boundary. If yes then that
@@ -37,14 +40,14 @@ while(i <=length(valid_points) )
     p = valid_points(i).Location; 
     if b_mask(round(p(2)),round(p(1))) < 0.1
         % The invalid points are plotted with red crosses
-        plot(p(1), p(2), 'rx');
+        %plot(p(1), p(2), 'rx');
         valid_points(i)=[];
         %k = k+1;
         features(i,:) = [];
     else
         % The valid points with green
-        plot(p(1),p(2),'go');
-        drawnow;
+        %plot(p(1),p(2),'go');
+        %drawnow;
         i = i+1;
     end
 end 
@@ -52,5 +55,5 @@ end
 %fprintf('Final size of features is %d %d \n', size(features));
 %fprintf('Rejected features num is %d \n', k);
 %fprintf('Final size of valid points is %d %d\n', size(valid_points));
-pause;
-close;
+%pause;
+%close;
