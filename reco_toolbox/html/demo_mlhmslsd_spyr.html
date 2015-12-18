@@ -1,0 +1,522 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>demo_mlhmslsd_spyr</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2010-12-11"><meta name="m-file" content="demo_mlhmslsd_spyr"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% Multi-Level Histogram of Color Multi-Scale Line Segment Detector with Spatial Pyramid.</span>
+<span class="comment">%</span>
+<span class="comment">% Usage</span>
+<span class="comment">% -----</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% [H , segments] = mlhmslsd_spyr(I , [options] );</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% I                              Input image (ny x nx x [3]) in UINT8 format.</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% options</span>
+<span class="comment">%        q                       Bound to quantization error on the gradient norm (default q = 2.0)</span>
+<span class="comment">% 	   d                       Gradient angle tolerance, tau = 180 degree / d (default d = 8.0)</span>
+<span class="comment">% 	   eps                     Detection threshold, -log10(max. NFA) (default eps = 0.0)</span>
+<span class="comment">%        n_bins                  # bins in 'ordering' of gradient modulus (default n_bins = 16256)</span>
+<span class="comment">% 	   max_grad                Gradient modulus in the highest bin (default max_grad = 260100)</span>
+<span class="comment">%        spyr                    Spatial Pyramid (nspyr x 4) (default [1 , 1 , 1 , 1] with nspyr = 1)</span>
+<span class="comment">%                                where spyr(i,1) is the ratio of ny in y axis of the blocks at level i (by(i) = spyr(i,1)*ny)</span>
+<span class="comment">%                                where spyr(i,2) is the ratio of ny in y axis of the shifting at level i (deltay(i) = spyr(i,2)*ny)</span>
+<span class="comment">%                                where spyr(i,3) is the ratio of nx in x axis of the blocks at level i (bx(i) = spyr(i,3)*nx)</span>
+<span class="comment">%                                where spyr(i,3) is the ratio of nx in x axis of the shifting at level i (deltax(i) = spyr(i,4)*nx)</span>
+<span class="comment">%        color                   0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent color (dimcolor = 3),</span>
+<span class="comment">%                                4 : nOpponent color (dimcolor = 2), 5 : Hue  (dimcolor = 1)</span>
+<span class="comment">% 	   scale                   Gaussian filter scaling vector for image before processing (1 x nscale)</span>
+<span class="comment">% 	   sigma_scale             Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)</span>
+<span class="comment">% 	   nori                    Number of bin's orientation (default nori = 9)</span>
+<span class="comment">% 	   nlength                 Number of bin's length  (default nlength = 9)</span>
+<span class="comment">% 	   norm                    Normalization : norm = 0 &lt;=&gt; no normalization, norm = 1 &lt;=&gt; v=v/(sum(v)+epsi), norm = 2 &lt;=&gt; v=v/sqrt(sum(v&sup2;)+epsi&sup2;),</span>
+<span class="comment">% 	                           norm = 3 &lt;=&gt; v=sqrt(v/(sum(v)+epsi)) , norm = 4 &lt;=&gt; L2-clamped (default norm = 1)</span>
+<span class="comment">% 	   clamp                   Clamping value (default clamp = 0.2)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Outputs</span>
+<span class="comment">% --------</span>
+<span class="comment">%</span>
+<span class="comment">% H                                     Histogram of features (nH*nori*nlength x 1) where nH = sum(floor(((1 - spyr(:,1))./(spyr(:,3)) + 1)).*floor((1 - spyr(:,2))./(spyr(:,4)) + 1))</span>
+<span class="comment">% segments                              Matrix of detected segments (7 x nb_segments) where each column vector is [x1 , y1 , x2 , y2 , witdh , scale , dimcolor]</span>
+<span class="comment">%</span>
+<span class="comment">% Reference : [1] R. Grompone von Gioi, J. Jakubowicz, J.-M. Morel, G. Randall,</span>
+<span class="comment">% ---------       "LSD: A Fast Line Segment Detector with a False Detection Control".</span>
+<span class="comment">%                 IEEE Trans. on PAMI, 19 Dec. 2008</span>
+</pre><pre class="codeinput">clc,close <span class="string">all</span>, clear <span class="string">all</span>,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , <span class="string">'core'</span>);
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , <span class="string">'image_0174.jpg'</span>));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title(<span class="string">'Gray Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_01.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Simple Histogram of LSD (without normalization)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+H                     = mlhmslsd_spyr(I);
+
+figure(co)
+plot(H)
+axis([0 , length(H) , 0 , 1.2*max(H)]);
+title(<span class="string">'Histogram of LSD'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_02.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% A 3 level spatial pyramid (overlapping (50%) subwindows for the second and third levels)</span>
+<span class="comment">% 12 bins for encoding orientation, 12 bins for encoding line length</span>
+<span class="comment">% Histograms are normalized with a L2-clamped norm</span>
+<span class="comment">%</span>
+
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+options.scale      = 1;
+options.color       = 0;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 4;
+options.clamp       = 0.2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf(<span class="string">'Histograms of LSD with 3 levels SP, nS = %d'</span>, nS) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+h = line(out([2,4] , :) , out([1,3] , :));
+hold <span class="string">off</span>
+set(h , <span class="string">'Color'</span> , [0 , 0 , 1]);
+title(<span class="string">'Gray Image and detected line segments'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_03.png" alt=""> <img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_04.png" alt=""> <pre class="codeinput">I                     = imread(fullfile(core_dir , <span class="string">'02769_Right_StudentOffice.jpeg'</span>));
+
+figure(co)
+imagesc(I)
+title(<span class="string">'Color Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_05.png" alt=""> <pre class="codeinput"><span class="comment">% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">% Opponent colors are used with</span>
+<span class="comment">% a 3 level spatial pyramid (overlapping (50%) subwindows for the second &amp; third levels)</span>
+<span class="comment">% 12 bins for encoding orientation, 12 bins for encoding line length</span>
+<span class="comment">% Histograms are normalized with a L2</span>
+<span class="comment">%</span>
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+option.scale        = 1;
+options.sigma_scale = 0.6;
+options.color       = 3;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf(<span class="string">'Histograms of LSD with 3 levels SP, nS = %d'</span>  , nS) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+h = line(out([2,4] , :) , out([1,3] , :));
+hold <span class="string">off</span>
+set(h , <span class="string">'Color'</span> , [0 , 0 , 1]);
+title(<span class="string">'Color Image and detected line segments'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_06.png" alt=""> <img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_07.png" alt=""> <pre class="codeinput"><span class="comment">% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">% Opponent colors are used with</span>
+<span class="comment">% a 3 level spatial pyramid (overlapping (50%) subwindows for the second &amp; third levels)</span>
+<span class="comment">% 12 bins for encoding orientation, 12 bins for encoding line length.</span>
+<span class="comment">% 3 differents scale are used.</span>
+<span class="comment">% Histograms are normalized with a L2-clamped norm</span>
+<span class="comment">%</span>
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+options.scale       = [0.25 , 0.5 , 1];
+options.sigma_scale = 0.6;
+options.color       = 3;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 4;
+options.clamp       = 0.2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf(<span class="string">'Histograms of LSD with 3 levels SP, nS = %d'</span>  , nS) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+h = line(out([2,4] , :) , out([1,3] , :));
+hold <span class="string">off</span>
+set(h , <span class="string">'Color'</span> , [0 , 0 , 1]);
+title(<span class="string">'Color Image and detected line segments'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13)
+
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_08.png" alt=""> <img vspace="5" hspace="5" src="demo_mlhmslsd_spyr_09.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+% Multi-Level Histogram of Color Multi-Scale Line Segment Detector with Spatial Pyramid.
+%
+% Usage
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+%
+%
+% [H , segments] = mlhmslsd_spyr(I , [options] );
+%
+%
+% Inputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+%
+%
+% I                              Input image (ny x nx x [3]) in UINT8 format.
+%
+%
+% options
+%        q                       Bound to quantization error on the gradient norm (default q = 2.0)
+% 	   d                       Gradient angle tolerance, tau = 180 degree / d (default d = 8.0)
+% 	   eps                     Detection threshold, -log10(max. NFA) (default eps = 0.0)
+%        n_bins                  # bins in 'ordering' of gradient modulus (default n_bins = 16256)
+% 	   max_grad                Gradient modulus in the highest bin (default max_grad = 260100)
+%        spyr                    Spatial Pyramid (nspyr x 4) (default [1 , 1 , 1 , 1] with nspyr = 1)
+%                                where spyr(i,1) is the ratio of ny in y axis of the blocks at level i (by(i) = spyr(i,1)*ny)
+%                                where spyr(i,2) is the ratio of ny in y axis of the shifting at level i (deltay(i) = spyr(i,2)*ny)
+%                                where spyr(i,3) is the ratio of nx in x axis of the blocks at level i (bx(i) = spyr(i,3)*nx)
+%                                where spyr(i,3) is the ratio of nx in x axis of the shifting at level i (deltax(i) = spyr(i,4)*nx)
+%        color                   0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent color (dimcolor = 3),
+%                                4 : nOpponent color (dimcolor = 2), 5 : Hue  (dimcolor = 1)
+% 	   scale                   Gaussian filter scaling vector for image before processing (1 x nscale)
+% 	   sigma_scale             Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)
+% 	   nori                    Number of bin's orientation (default nori = 9)
+% 	   nlength                 Number of bin's length  (default nlength = 9)
+% 	   norm                    Normalization : norm = 0 <=> no normalization, norm = 1 <=> v=v/(sum(v)+epsi), norm = 2 <=> v=v/sqrt(sum(v²)+epsi²),
+% 	                           norm = 3 <=> v=sqrt(v/(sum(v)+epsi)) , norm = 4 <=> L2-clamped (default norm = 1)
+% 	   clamp                   Clamping value (default clamp = 0.2)
+%
+%
+%
+% Outputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+%
+% H                                     Histogram of features (nH*nori*nlength x 1) where nH = sum(floor(((1 - spyr(:,1))./(spyr(:,3)) + 1)).*floor((1 - spyr(:,2))./(spyr(:,4)) + 1))
+% segments                              Matrix of detected segments (7 x nb_segments) where each column vector is [x1 , y1 , x2 , y2 , witdh , scale , dimcolor]
+%
+% Reference : [1] R. Grompone von Gioi, J. Jakubowicz, J.-M. Morel, G. Randall,
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-       "LSD: A Fast Line Segment Detector with a False Detection Control".
+%                 IEEE Trans. on PAMI, 19 Dec. 2008
+
+%%
+
+clc,close all, clear all,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , 'core');
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , 'image_0174.jpg'));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title('Gray Image example' ,'fontname' , 'times' , 'fontsize' , 13)
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Simple Histogram of LSD (without normalization)
+%
+%
+
+H                     = mlhmslsd_spyr(I);
+
+figure(co)
+plot(H)
+axis([0 , length(H) , 0 , 1.2*max(H)]);
+title('Histogram of LSD' ,'fontname' , 'times' , 'fontsize' , 13)
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% A 3 level spatial pyramid (overlapping (50%) subwindows for the second and third levels)
+% 12 bins for encoding orientation, 12 bins for encoding line length
+% Histograms are normalized with a L2-clamped norm
+%
+
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+options.scale      = 1;
+options.color       = 0;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 4;
+options.clamp       = 0.2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf('Histograms of LSD with 3 levels SP, nS = %d', nS) ,'fontname' , 'times' , 'fontsize' , 13)
+
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+h = line(out([2,4] , :) , out([1,3] , :));
+hold off
+set(h , 'Color' , [0 , 0 , 1]);
+title('Gray Image and detected line segments' ,'fontname' , 'times' , 'fontsize' , 13)
+
+co                   = co + 1;
+
+%%
+
+
+I                     = imread(fullfile(core_dir , '02769_Right_StudentOffice.jpeg'));
+
+figure(co)
+imagesc(I)
+title('Color Image example' ,'fontname' , 'times' , 'fontsize' , 13)
+co                   = co + 1;
+
+
+%%
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%
+% Opponent colors are used with
+% a 3 level spatial pyramid (overlapping (50%) subwindows for the second & third levels)
+% 12 bins for encoding orientation, 12 bins for encoding line length
+% Histograms are normalized with a L2
+%
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+option.scale        = 1;
+options.sigma_scale = 0.6;
+options.color       = 3;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf('Histograms of LSD with 3 levels SP, nS = %d'  , nS) ,'fontname' , 'times' , 'fontsize' , 13)
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+h = line(out([2,4] , :) , out([1,3] , :));
+hold off
+set(h , 'Color' , [0 , 0 , 1]);
+title('Color Image and detected line segments' ,'fontname' , 'times' , 'fontsize' , 13)
+
+co                   = co + 1;
+
+%%
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 4 %%%%%%%%%%%%%%%%%%%%%%%%%
+% Opponent colors are used with
+% a 3 level spatial pyramid (overlapping (50%) subwindows for the second & third levels)
+% 12 bins for encoding orientation, 12 bins for encoding line length.
+% 3 differents scale are used.
+% Histograms are normalized with a L2-clamped norm
+%
+options.q           = 2;
+options.d           = 8;
+options.eps         = -15.0;
+options.n_bins      = 16256;
+options.max_grad    = 260100;
+options.spyr        = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8];
+options.scale       = [0.25 , 0.5 , 1];
+options.sigma_scale = 0.6;
+options.color       = 3;
+options.nori        = 12;
+options.nlength     = 12;
+options.norm        = 4;
+options.clamp       = 0.2;
+
+
+nS                  = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+[H , out]           = mlhmslsd_spyr(I , options);
+nb_segment          = histc(out(6 , :) , options.scale);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf('Histograms of LSD with 3 levels SP, nS = %d'  , nS) ,'fontname' , 'times' , 'fontsize' , 13)
+co                   = co + 1;
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+h = line(out([2,4] , :) , out([1,3] , :));
+hold off
+set(h , 'Color' , [0 , 0 , 1]);
+title('Color Image and detected line segments' ,'fontname' , 'times' , 'fontsize' , 13)
+
+co                   = co + 1;
+
+%%
+
+##### SOURCE END #####
+--></body></html>

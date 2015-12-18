@@ -1,0 +1,331 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>demo_denseMBLDP</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2010-12-11"><meta name="m-file" content="demo_denseMBLDP"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% denseMBLDP extract Histogram of Multi-Block LDP on a regular dense grid and computed on image I after color projection</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Usage</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">% [dmbldp , infodmbldp] =  densembldp(I , [options] );</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% I                              Input image (ny x nx x [3]) in UINT8 format.</span>
+<span class="comment">% options</span>
+<span class="comment">%</span>
+<span class="comment">%        scale                   Multi-Scale vector (1 x nscale) (default scale = 1) where scale(i) = s is the size's factor to apply to each 9 blocks</span>
+<span class="comment">%                                in the LDP computation, i = 1,...,nscale</span>
+<span class="comment">%</span>
+<span class="comment">% 	   deltax                  Division step in the x-axis for the grid (default deltax = floor(nx*min(scale)))</span>
+<span class="comment">% 	   deltay                  Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))</span>
+<span class="comment">%</span>
+<span class="comment">%        n                       Derivative order of ldp (n &gt; 1, default n = 2)</span>
+<span class="comment">%</span>
+<span class="comment">%        ldporient               Orientation for ldp computation (1 x norient), where norien &lt;= 4 and ldporient(i) = {0,1,2,3}</span>
+<span class="comment">% 	                           ldporient(i) = 0 &lt;=&gt; (I(x_1+1,y_1)-I(x_1,y_1))*(I(x_0+1,y_0)-I(x_0,y_0))&lt; 0</span>
+<span class="comment">% 	                           ldporient(i) = 1 &lt;=&gt; (I(x_1+1,y_1+1)-I(x_1,y_1))*(I(x_0+1,y_0+1)-I(x_0,y_0))&lt; 0</span>
+<span class="comment">% 	                           ldporient(i) = 2 &lt;=&gt; (I(x_1,y_1+1)-I(x_1,y_1))*(I(x_0,y_0+1)-I(x_0,y_0))&lt; 0</span>
+<span class="comment">% 	                           ldporient(i) = 3 &lt;=&gt; (I(x_1-1,y_1+1)-I(x_1,y_1))*(I(x_0-1,y_0+1)-I(x_0,y_0))&lt; 0</span>
+<span class="comment">% 	                           (default ldporient = [0 , 1 , 2 , 3])</span>
+<span class="comment">%</span>
+<span class="comment">%        color                   0 : force gray-scale (dimcolor = 1, default), 1 : RGB-LDP (dimcolor = 3), 2 : nRGB-LDP (dimcolor = 3), 3 : Opponent-LDP (dimcolor = 3),</span>
+<span class="comment">%                                4 : nOpponent-LDP (dimcolor = 2), 5 : Hue-LDP (dimcolor = 1)</span>
+<span class="comment">%</span>
+<span class="comment">% 	   patchsize               Size of the patch where the descriptor is computed (default patchsize = 16 )</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%        improvedLDP             0 for default 8 bits encoding, 1 for 9 bits encoding (8 + central area)</span>
+<span class="comment">%</span>
+<span class="comment">%        kernelx                 Kernel in x-direction for computing the gradient (default kernelx = [1])</span>
+<span class="comment">%        kernely                 Kernel in y-direction for computing the gradient (default kernely = [1])</span>
+<span class="comment">%                                If numel(kernelx) ~1 || numel(kernely) ~1, compute the magnitude, i.e. sqrt(dx*dx + dy*dy)</span>
+<span class="comment">%                                For example if kernelx = [1 2 1 ; 0 0 0 ; -1 -2 -1] and kernely = kernelx', this is equivalent to compute filter</span>
+<span class="comment">%                                the image with a sobel filter.</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%        rmextremebins           Force to zero bin = {0 , {255,58,9}} if  rmextremebins = 1 (default rmextremebins = 1)</span>
+<span class="comment">%</span>
+<span class="comment">%        norm                    Normalization : norm = 0 &lt;=&gt; no normalization, norm = 1 &lt;=&gt; v=v/(sum(v)+epsi), norm = 2 &lt;=&gt; v=v/sqrt(sum(v&sup2;)+epsi&sup2;),</span>
+<span class="comment">%                                norm = 3 &lt;=&gt; v=sqrt(v/(sum(v)+epsi)) , norm = 3 &lt;=&gt; L2-clamped (default norm = 1)</span>
+<span class="comment">%</span>
+<span class="comment">%        clamp                   Clamping value (default clamp = 0.2)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Outputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% dmbldp                         MBLDP patches descriptors (nbin x nb_pts) nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">%                                in double format where nbin = ([256,59,10]*(improvedLDP+1)) (depending on improvedLDP)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% infodmbldp                     MBLDP patches informations(4 x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">%                                infodmbldp(1,i) = y</span>
+<span class="comment">% 						       infodmbldp(2,i) = x</span>
+<span class="comment">% 							   infodmbldp(3,i) = scale</span>
+<span class="comment">% 							   infodmbldp(4,i) = color</span>
+<span class="comment">% 							   infodmbldp(5,i) = nyscale</span>
+<span class="comment">% 							   infodmbldp(6,i) = nxscale</span>
+</pre><pre class="codeinput">clc,close <span class="string">all</span>, clear <span class="string">all</span>,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , <span class="string">'core'</span>);
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , <span class="string">'image_0174.jpg'</span>));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title(<span class="string">'Gray Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseMBLDP_01.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Extract patches of gray (20 x 20) pixels for computing histograms</span>
+<span class="comment">% of MB-LDP with 3 block-size and derivative order = 2</span>
+<span class="comment">% Histograms are L2-clamp normalized</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+options.scale         = [1,2,3];
+options.deltax        = 12;
+options.deltay        = 12;
+options.n             = 2;
+options.ldporient     = [0 , 1 , 2 , 3];
+options.color         = 0;
+options.patchsize     = 20;
+options.rmextremebins = 1;
+options.norm          = 4;
+options.clamp         = 0.2;
+
+
+[dmbldp , infodmbldp] =  denseMBLDP(I , options );
+
+half                  = options.patchsize/2;
+
+xr                    = [infodmbldp(2, :)-half ; infodmbldp(2, :)-half ; infodmbldp(2, :)+ half ; infodmbldp(2, :)+ half ; infodmbldp(2, :)-half] + 1.5;
+yr                    = [infodmbldp(1, :)-half ; infodmbldp(1, :)+half ; infodmbldp(1, :)+ half ; infodmbldp(1, :)- half ; infodmbldp(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+plot(infodmbldp(2 , :)+1.5 , infodmbldp(1 , :)+1.5 , <span class="string">'r+'</span>)
+plot(xr , yr , <span class="string">'b'</span>)
+hold <span class="string">off</span>
+title(sprintf(<span class="string">'Location of %dx%d=%d patches of size = %dx%d'</span> , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dmbldp)
+title(sprintf(<span class="string">'Histograms of MBLDP for 3 different block-size'</span>) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 ,  <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+h=ylabel(<span class="string">'bins'</span>);
+set(h,<span class="string">'fontsize'</span>,12,<span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseMBLDP_02.png" alt=""> <img vspace="5" hspace="5" src="demo_denseMBLDP_03.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+% denseMBLDP extract Histogram of Multi-Block LDP on a regular dense grid and computed on image I after color projection
+% 
+% 
+% Usage
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% 
+% [dmbldp , infodmbldp] =  densembldp(I , [options] );
+% 
+% 
+% Inputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% I                              Input image (ny x nx x [3]) in UINT8 format. 
+% options 
+% 
+%        scale                   Multi-Scale vector (1 x nscale) (default scale = 1) where scale(i) = s is the size's factor to apply to each 9 blocks
+%                                in the LDP computation, i = 1,...,nscale
+% 
+% 	   deltax                  Division step in the x-axis for the grid (default deltax = floor(nx*min(scale))) 
+% 	   deltay                  Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))
+% 
+%        n                       Derivative order of ldp (n > 1, default n = 2)
+% 
+%        ldporient               Orientation for ldp computation (1 x norient), where norien <= 4 and ldporient(i) = {0,1,2,3}
+% 	                           ldporient(i) = 0 <=> (I(x_1+1,y_1)-I(x_1,y_1))*(I(x_0+1,y_0)-I(x_0,y_0))< 0
+% 	                           ldporient(i) = 1 <=> (I(x_1+1,y_1+1)-I(x_1,y_1))*(I(x_0+1,y_0+1)-I(x_0,y_0))< 0
+% 	                           ldporient(i) = 2 <=> (I(x_1,y_1+1)-I(x_1,y_1))*(I(x_0,y_0+1)-I(x_0,y_0))< 0
+% 	                           ldporient(i) = 3 <=> (I(x_1-1,y_1+1)-I(x_1,y_1))*(I(x_0-1,y_0+1)-I(x_0,y_0))< 0
+% 	                           (default ldporient = [0 , 1 , 2 , 3])
+% 
+%        color                   0 : force gray-scale (dimcolor = 1, default), 1 : RGB-LDP (dimcolor = 3), 2 : nRGB-LDP (dimcolor = 3), 3 : Opponent-LDP (dimcolor = 3), 
+%                                4 : nOpponent-LDP (dimcolor = 2), 5 : Hue-LDP (dimcolor = 1)
+% 
+% 	   patchsize               Size of the patch where the descriptor is computed (default patchsize = 16 )	  
+% 
+% 
+%        improvedLDP             0 for default 8 bits encoding, 1 for 9 bits encoding (8 + central area)
+% 
+%        kernelx                 Kernel in x-direction for computing the gradient (default kernelx = [1])
+%        kernely                 Kernel in y-direction for computing the gradient (default kernely = [1])
+%                                If numel(kernelx) ~1 || numel(kernely) ~1, compute the magnitude, i.e. sqrt(dx*dx + dy*dy)
+%                                For example if kernelx = [1 2 1 ; 0 0 0 ; -1 -2 -1] and kernely = kernelx', this is equivalent to compute filter
+%                                the image with a sobel filter.
+% 
+% 
+%        rmextremebins           Force to zero bin = {0 , {255,58,9}} if  rmextremebins = 1 (default rmextremebins = 1)
+% 
+%        norm                    Normalization : norm = 0 <=> no normalization, norm = 1 <=> v=v/(sum(v)+epsi), norm = 2 <=> v=v/sqrt(sum(v²)+epsi²), 
+%                                norm = 3 <=> v=sqrt(v/(sum(v)+epsi)) , norm = 3 <=> L2-clamped (default norm = 1)
+% 
+%        clamp                   Clamping value (default clamp = 0.2)
+% 
+% 
+% Outputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% dmbldp                         MBLDP patches descriptors (nbin x nb_pts) nb_pts = deltax*deltay*nscale*dimcolor 
+%                                in double format where nbin = ([256,59,10]*(improvedLDP+1)) (depending on improvedLDP) 
+% 							   
+% 
+% infodmbldp                     MBLDP patches informations(4 x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor
+%                                infodmbldp(1,i) = y
+% 						       infodmbldp(2,i) = x
+% 							   infodmbldp(3,i) = scale
+% 							   infodmbldp(4,i) = color    
+% 							   infodmbldp(5,i) = nyscale                 
+% 							   infodmbldp(6,i) = nxscale                
+
+%%
+clc,close all, clear all,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , 'core');
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , 'image_0174.jpg'));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title('Gray Image example' ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Extract patches of gray (20 x 20) pixels for computing histograms
+% of MB-LDP with 3 block-size and derivative order = 2
+% Histograms are L2-clamp normalized
+%
+%
+
+options.scale         = [1,2,3];
+options.deltax        = 12;
+options.deltay        = 12;
+options.n             = 2;
+options.ldporient     = [0 , 1 , 2 , 3];
+options.color         = 0;
+options.patchsize     = 20;
+options.rmextremebins = 1;
+options.norm          = 4;
+options.clamp         = 0.2;
+
+
+[dmbldp , infodmbldp] =  denseMBLDP(I , options );
+
+half                  = options.patchsize/2;
+
+xr                    = [infodmbldp(2, :)-half ; infodmbldp(2, :)-half ; infodmbldp(2, :)+ half ; infodmbldp(2, :)+ half ; infodmbldp(2, :)-half] + 1.5;
+yr                    = [infodmbldp(1, :)-half ; infodmbldp(1, :)+half ; infodmbldp(1, :)+ half ; infodmbldp(1, :)- half ; infodmbldp(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+plot(infodmbldp(2 , :)+1.5 , infodmbldp(1 , :)+1.5 , 'r+')
+plot(xr , yr , 'b')
+hold off
+title(sprintf('Location of %dx%d=%d patches of size = %dx%d' , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dmbldp)
+title(sprintf('Histograms of MBLDP for 3 different block-size') ,'fontname' , 'times' , 'fontsize' , 13 ,  'fontweight','bold')
+h=ylabel('bins');
+set(h,'fontsize',12,'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+##### SOURCE END #####
+--></body></html>

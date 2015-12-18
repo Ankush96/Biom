@@ -12,7 +12,7 @@ for i = 1:numDir
 %        if sum(j == train_ind)
 %            fprintf('%d -> Train\n', label_ind(j));
 %        else 
-%            fprintf('%d -> Test\n', label_ind(j));
+%            fprintf('%d ->fi Test\n', label_ind(j));
 %        end    
 %     end    
 %    pause
@@ -24,21 +24,49 @@ train_labels = labels(train);
 test_images = images(test);
 test_labels = labels(test);
 
-numClusters = 64;
+numClusters = 128;
 %% Training
-%[features, index] = mult_descriptors(train_images);
-%[histograms, Centers] = gen_hist(train_images, numClusters, features, index);
+[train_features, train_feat_index, class_index] = mult_descriptors(train_images, train_labels);
+[train_histograms, Centers] = gen_hist(train_images, numClusters, train_features, train_feat_index);
 
 %% Testing
+test_histograms = zeros(length(test_images), numClusters);
 predicted_label = ones(length(test_labels),1);
 for i = 1:length(test_images)
     fprintf('Image number %d / %d \n', i, length(test_images));
+    test_images(i)
     img = imread(char(test_images(i)));
-    [f,~] = descriptors(img);    
+    [f,~] = descriptors(img);   
+    f = double(f)./255;
     idx = knnsearch(Centers, f);
     hist_image = hist(idx, numClusters);
     hist_image = hist_image/sum(hist_image);
+    test_histograms(i,:) = hist_image;
     % Now we find the closest training image histogram
-    x = knnsearch(histograms, hist_image); 
-    predicted_label(i) = train_labels(x);
-end    
+    x = knnsearch(train_histograms, hist_image, 'K', 5); 
+    y = train_labels(x)
+    un = unique(y);
+    if length(y) == length(un)
+        x = y(1);
+    else
+        count = un;
+        for j=1:length(count)
+            count(j) = length(find(y == un(j)));
+        end
+        max_voted = un(count == max(count));            
+        if length(max_voted) == 1
+            x = max_voted;
+        else
+            for j=1:length(y)
+                if ~isempty(find(y(j) == max_voted))
+                    x = y(j);
+                    break
+                end    
+            end
+        end    
+    end    
+    
+    predicted_label(i) = x;
+    fprintf('Predicted %d. Actual %d \n', x, test_labels(i));
+end
+mean(predicted_label == test_labels)

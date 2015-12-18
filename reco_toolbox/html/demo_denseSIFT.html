@@ -1,0 +1,479 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>demo_denseSIFT</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2010-12-11"><meta name="m-file" content="demo_denseSIFT"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% denseSIFT compute SIFT (Scale-invariant feature transform) descriptors on a regular dense grid</span>
+<span class="comment">%</span>
+<span class="comment">% Usage</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">% [dsift , infodsift] = denseSIFT(I , [options] );</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% I                                     Input image (ny x nx x [3]) in UINT8 format.</span>
+<span class="comment">%</span>
+<span class="comment">% options</span>
+<span class="comment">% 	   scale                          Scaling vector (1 x nscale). Extract descriptors at different scaling of the image (default scale = [1]).</span>
+<span class="comment">% 	   sigma_scale                    Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)(default sigma_scale = 0.6)</span>
+<span class="comment">% 	   kernelx                        Kernel in x-direction for computing the gradient (default kernelx = [0.028 , 0.127 , 0.209 , 0.127 , 0.028 ; 0.026 , 0.116 , 0.192 , 0.116 , 0.026 ; 0 , 0 , 0 , 0 , 0 ; -0.026 , -0.116 ,  -0.192 , -0.116 -0.026 ; -0.028 -0.127 -0.209 -0.127 -0.028])</span>
+<span class="comment">% 	   kernely                        Kernel in y-direction for computing the gradient (default kernely = [0.028 , 0.127 , 0.209 , 0.127 , 0.028 ; 0.026 , 0.116 , 0.192 , 0.116 , 0.026 ; 0 , 0 , 0 , 0 , 0 ; -0.026 , -0.116 ,  -0.192 , -0.116 -0.026 ; -0.028 -0.127 -0.209 -0.127 -0.028]')</span>
+<span class="comment">%        weightx                        Weights in x-direction for computing orientation responses (default weightx = [0 , 0.11 , 0.55 , 1 , 0.55 , 0.11 , 0 , 0 , 0])</span>
+<span class="comment">% 	   weighty                        Weights in y-direction for computing orientation responses (default weightx = [0 , 0.11 , 0.55 , 1 , 0.55 , 0.11 , 0 , 0 , 0]')</span>
+<span class="comment">% 	   deltax                         Division step in the x-axis for the grid (default deltax = floor(nx*min(scale)))</span>
+<span class="comment">% 	   deltay                         Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))</span>
+<span class="comment">%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent (dimcolor = 3),</span>
+<span class="comment">%                                       4 : nOpponent (dimcolor = 2), 5 : Hue (dimcolor = 1)</span>
+<span class="comment">% 	   nori                           Number of orientation (default nori = 8)</span>
+<span class="comment">%        alpha                          Parameter for attenuation of angles, must be odd (default alpha = 9)</span>
+<span class="comment">% 	   nbins                          Number of bins for histograms (default nbins = 4)</span>
+<span class="comment">% 	   patchsize                      Size of the patch where the descriptor is computed (default patchsize = 2*nbins+1 )</span>
+<span class="comment">% 	   norm                           Normalization : norm = 0 &lt;=&gt; no normalization, norm = 1 &lt;=&gt; v=v/(sum(v)+epsi), norm = 2 &lt;=&gt; v=v/sqrt(sum(v&sup2;)+epsi&sup2;),</span>
+<span class="comment">% 	                                  norm = 3 &lt;=&gt; v=sqrt(v/(sum(v)+epsi)) , norm = 3 &lt;=&gt; L2-clamped (default norm = 1)</span>
+<span class="comment">% 	   clamp                          Clamping value (default clamp = 0.2)</span>
+<span class="comment">% 	   rmmean                         Remove mean value of the current Image at scale s_i: 0 don't remove, 1 remove (default = rmmean = 0)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Outputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% dsift                                 SIFT descriptors (nbins*nbins*nori x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">% infodsift                             SIFT descriptors informations(7 x nb_pts)   where nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">%                                       infodsift(1,i) = y</span>
+<span class="comment">% 									  infodsift(2,i) = x</span>
+<span class="comment">% 									  infodsift(3,i) = scale</span>
+<span class="comment">% 									  infodsift(4,i) = color</span>
+<span class="comment">% 									  infodsift(5,i) = nyscale;</span>
+<span class="comment">% 									  infodsift(6,i) = nxscale;</span>
+<span class="comment">% 									  infodsift(7,i) = ||f||_{options.norm}</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% References : [1] Lowe, David G. (1999). "Object recognition from local scale-invariant features".</span>
+<span class="comment">% ----------       Proceedings of the International Conference on Computer Vision. 2. pp. 1150&#8211;1157</span>
+<span class="comment">%</span>
+<span class="comment">%              [2] Koen E. A. van de Sande, Theo Gevers and Cees G. M. Snoek,</span>
+<span class="comment">% 			     "Evaluating Color Descriptors for Object and Scene Recognition",</span>
+<span class="comment">% 				 IEEE Transactions on Pattern Analysis and Machine Intelligence, volume 32 (9), pages 1582-1596, 2010</span>
+</pre><pre class="codeinput">clc,close <span class="string">all</span>, clear <span class="string">all</span>,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , <span class="string">'core'</span>);
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , <span class="string">'image_0174.jpg'</span>));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title(<span class="string">'Gray Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseSIFT_01.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Extract SIFT over (4x4x8 bins</span>
+<span class="comment">% from patches (9 x 9) regulary sampled from I with scale = 1.</span>
+<span class="comment">% sift are L2 normalized</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+options.deltax                       = 22;
+options.deltay                       = 22;
+options.nori                         = 8;
+options.alpha                        = 9;
+options.nbins                        = 4;
+options.patchsize                    = 9;
+options.norm                         = 2;
+
+[dsift , infodsift]                  = denseSIFT(I , options );
+
+half                                 = options.patchsize/2;
+xr                                   = [infodsift(2, :)-half ; infodsift(2, :)-half ; infodsift(2, :)+ half ; infodsift(2, :)+ half ; infodsift(2, :)-half] + 1.5;
+yr                                   = [infodsift(1, :)-half ; infodsift(1, :)+half ; infodsift(1, :)+ half ; infodsift(1, :)- half ; infodsift(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+plot(infodsift(2 , :)+1.5 , infodsift(1 , :)+1.5 , <span class="string">'r+'</span>)
+plot(xr , yr , <span class="string">'b'</span>)
+hold <span class="string">off</span>
+title(sprintf(<span class="string">'Location of %dx%d=%d SIFT patches of size = %dx%d'</span> , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dsift)
+title(sprintf(<span class="string">'SIFT descriptors with nbins = %d, nori = %d '</span>,options.nbins , options.nori) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 ,  <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+h=ylabel(<span class="string">'bins'</span>);
+set(h,<span class="string">'fontsize'</span>,12,<span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseSIFT_02.png" alt=""> <img vspace="5" hspace="5" src="demo_denseSIFT_03.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Comparaison between denseSIFT.c and sp_dense_sift.m</span>
+<span class="comment">% sift are L2 normalized</span>
+<span class="comment">%</span>
+
+
+options.deltax                       = 5;
+options.deltay                       = 15;
+
+[dsift , infodsift]                  = denseSIFT(I , options );
+[sift_arr, grid_x, grid_y]           = sp_dense_sift(I, 25 , options.patchsize);
+
+<span class="comment">% Same sampling point (4,4) %%</span>
+
+disp([infodsift(1:2,1) , floor([grid_y(1,1) ; grid_x(1,1)])])
+
+<span class="comment">% Sort sift vectors since there are not ordonered in the same way %%</span>
+
+siftc                                = sort(dsift(: , 1));
+siftmatlab                           = sort(squeeze(sift_arr(1,1,:)));
+
+figure(co)
+
+plot(1:options.nbins^2*options.nori,siftc,1:options.nbins^2*options.nori,siftmatlab , <span class="string">'linewidth'</span> , 2)
+axis([0.5 , options.nbins^2*options.nori+0.5 , -0.1 , 1.2*max(siftc)])
+legend(<span class="string">'denseSIFT (mexfile)'</span>, <span class="string">'denseSIFT (matlab)'</span> , <span class="string">'location'</span>  , <span class="string">'northwest'</span>)
+title(sprintf(<span class="string">'Comparaison between SIFT descriptors with nbins = %d, nori = %d '</span>,options.nbins , options.nori) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 ,  <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+
+
+co                   = co + 1;
+</pre><pre class="codeoutput">     4     4
+     4     4
+
+</pre><img vspace="5" hspace="5" src="demo_denseSIFT_04.png" alt=""> <pre class="codeinput">I                     = imread(fullfile(core_dir , <span class="string">'02769_Right_StudentOffice.jpeg'</span>));
+
+figure(co)
+imagesc(I)
+title(<span class="string">'Color Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+
+<span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Extract SIFT over (4x4x8 bins</span>
+<span class="comment">% from patches (16 x 16) regulary sampled from I with scale = 1.2.</span>
+<span class="comment">% Opponent color projection is used</span>
+<span class="comment">% sift are L2-clamp normalized</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+</pre><img vspace="5" hspace="5" src="demo_denseSIFT_05.png" alt=""> <pre class="codeinput">options.deltax                       = 22;
+options.deltay                       = 22;
+options.color                        = 3;
+options.nori                         = 8;
+options.alpha                        = 9;
+options.nbins                        = 4;
+options.patchsize                    = 16;
+options.norm                         = 4;
+options.clamp                        = 0.2;
+
+options.sigma_edge                   = 1.2;
+[options.kernely , options.kernelx]  = gen_dgauss(options.sigma_edge);
+options.weightx                      = gen_weight(options.patchsize , options.nbins);
+options.weighty                      = options.weightx';
+
+[dsift , infodsift]                  = denseSIFT(I , options );
+
+half                                 = options.patchsize/2;
+xr                                   = [infodsift(2, :)-half ; infodsift(2, :)-half ; infodsift(2, :)+ half ; infodsift(2, :)+ half ; infodsift(2, :)-half] + 1.5;
+yr                                   = [infodsift(1, :)-half ; infodsift(1, :)+half ; infodsift(1, :)+ half ; infodsift(1, :)- half ; infodsift(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+plot(infodsift(2 , :)+1.5 , infodsift(1 , :)+1.5 , <span class="string">'r+'</span>)
+plot(xr , yr , <span class="string">'b'</span>)
+hold <span class="string">off</span>
+title(sprintf(<span class="string">'Location of %dx%d=%d SIFT patches of size = %dx%d'</span> , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dsift)
+title(sprintf(<span class="string">'Color SIFT (Opponnent) descriptors with nbins = %d, nori = %d '</span>,options.nbins , options.nori) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 ,  <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+h=ylabel(<span class="string">'bins'</span>);
+set(h,<span class="string">'fontsize'</span>,12,<span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseSIFT_06.png" alt=""> <img vspace="5" hspace="5" src="demo_denseSIFT_07.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+% denseSIFT compute SIFT (Scale-invariant feature transform) descriptors on a regular dense grid
+% 
+% Usage
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% 
+% [dsift , infodsift] = denseSIFT(I , [options] );
+% 
+% 
+% Inputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% I                                     Input image (ny x nx x [3]) in UINT8 format. 
+% 
+% options
+% 	   scale                          Scaling vector (1 x nscale). Extract descriptors at different scaling of the image (default scale = [1]).
+% 	   sigma_scale                    Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)(default sigma_scale = 0.6)
+% 	   kernelx                        Kernel in x-direction for computing the gradient (default kernelx = [0.028 , 0.127 , 0.209 , 0.127 , 0.028 ; 0.026 , 0.116 , 0.192 , 0.116 , 0.026 ; 0 , 0 , 0 , 0 , 0 ; -0.026 , -0.116 ,  -0.192 , -0.116 -0.026 ; -0.028 -0.127 -0.209 -0.127 -0.028])
+% 	   kernely                        Kernel in y-direction for computing the gradient (default kernely = [0.028 , 0.127 , 0.209 , 0.127 , 0.028 ; 0.026 , 0.116 , 0.192 , 0.116 , 0.026 ; 0 , 0 , 0 , 0 , 0 ; -0.026 , -0.116 ,  -0.192 , -0.116 -0.026 ; -0.028 -0.127 -0.209 -0.127 -0.028]')
+%        weightx                        Weights in x-direction for computing orientation responses (default weightx = [0 , 0.11 , 0.55 , 1 , 0.55 , 0.11 , 0 , 0 , 0])
+% 	   weighty                        Weights in y-direction for computing orientation responses (default weightx = [0 , 0.11 , 0.55 , 1 , 0.55 , 0.11 , 0 , 0 , 0]')
+% 	   deltax                         Division step in the x-axis for the grid (default deltax = floor(nx*min(scale))) 
+% 	   deltay                         Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))
+%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent (dimcolor = 3), 
+%                                       4 : nOpponent (dimcolor = 2), 5 : Hue (dimcolor = 1)
+% 	   nori                           Number of orientation (default nori = 8)
+%        alpha                          Parameter for attenuation of angles, must be odd (default alpha = 9)
+% 	   nbins                          Number of bins for histograms (default nbins = 4)
+% 	   patchsize                      Size of the patch where the descriptor is computed (default patchsize = 2*nbins+1 )	  
+% 	   norm                           Normalization : norm = 0 <=> no normalization, norm = 1 <=> v=v/(sum(v)+epsi), norm = 2 <=> v=v/sqrt(sum(v²)+epsi²), 
+% 	                                  norm = 3 <=> v=sqrt(v/(sum(v)+epsi)) , norm = 3 <=> L2-clamped (default norm = 1)
+% 	   clamp                          Clamping value (default clamp = 0.2)
+% 	   rmmean                         Remove mean value of the current Image at scale s_i: 0 don't remove, 1 remove (default = rmmean = 0)
+% 
+% 
+% Outputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% dsift                                 SIFT descriptors (nbins*nbins*nori x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor
+% infodsift                             SIFT descriptors informations(7 x nb_pts)   where nb_pts = deltax*deltay*nscale*dimcolor
+%                                       infodsift(1,i) = y
+% 									  infodsift(2,i) = x
+% 									  infodsift(3,i) = scale
+% 									  infodsift(4,i) = color
+% 									  infodsift(5,i) = nyscale;
+% 									  infodsift(6,i) = nxscale;
+% 									  infodsift(7,i) = ||f||_{options.norm}
+%
+%
+% References : [1] Lowe, David G. (1999). "Object recognition from local scale-invariant features". 
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH       Proceedings of the International Conference on Computer Vision. 2. pp. 1150–1157
+% 
+%              [2] Koen E. A. van de Sande, Theo Gevers and Cees G. M. Snoek, 
+% 			     "Evaluating Color Descriptors for Object and Scene Recognition", 
+% 				 IEEE Transactions on Pattern Analysis and Machine Intelligence, volume 32 (9), pages 1582-1596, 2010
+%%
+
+
+clc,close all, clear all,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , 'core');
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , 'image_0174.jpg'));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title('Gray Image example' ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Extract SIFT over (4x4x8 bins
+% from patches (9 x 9) regulary sampled from I with scale = 1.
+% sift are L2 normalized
+%
+%
+
+options.deltax                       = 22;
+options.deltay                       = 22;
+options.nori                         = 8;
+options.alpha                        = 9;
+options.nbins                        = 4;
+options.patchsize                    = 9;
+options.norm                         = 2;
+
+[dsift , infodsift]                  = denseSIFT(I , options ); 
+
+half                                 = options.patchsize/2;
+xr                                   = [infodsift(2, :)-half ; infodsift(2, :)-half ; infodsift(2, :)+ half ; infodsift(2, :)+ half ; infodsift(2, :)-half] + 1.5;
+yr                                   = [infodsift(1, :)-half ; infodsift(1, :)+half ; infodsift(1, :)+ half ; infodsift(1, :)- half ; infodsift(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+plot(infodsift(2 , :)+1.5 , infodsift(1 , :)+1.5 , 'r+')
+plot(xr , yr , 'b')
+hold off
+title(sprintf('Location of %dx%d=%d SIFT patches of size = %dx%d' , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dsift)
+title(sprintf('SIFT descriptors with nbins = %d, nori = %d ',options.nbins , options.nori) ,'fontname' , 'times' , 'fontsize' , 13 ,  'fontweight','bold')
+h=ylabel('bins');
+set(h,'fontsize',12,'fontweight','bold')
+co                   = co + 1;
+
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Comparaison between denseSIFT.c and sp_dense_sift.m
+% sift are L2 normalized
+%
+
+
+options.deltax                       = 5;
+options.deltay                       = 15;
+
+[dsift , infodsift]                  = denseSIFT(I , options ); 
+[sift_arr, grid_x, grid_y]           = sp_dense_sift(I, 25 , options.patchsize);
+
+% Same sampling point (4,4) %%
+
+disp([infodsift(1:2,1) , floor([grid_y(1,1) ; grid_x(1,1)])])
+
+% Sort sift vectors since there are not ordonered in the same way %%
+
+siftc                                = sort(dsift(: , 1));
+siftmatlab                           = sort(squeeze(sift_arr(1,1,:)));
+
+figure(co)
+
+plot(1:options.nbins^2*options.nori,siftc,1:options.nbins^2*options.nori,siftmatlab , 'linewidth' , 2)
+axis([0.5 , options.nbins^2*options.nori+0.5 , -0.1 , 1.2*max(siftc)])
+legend('denseSIFT (mexfile)', 'denseSIFT (matlab)' , 'location'  , 'northwest')
+title(sprintf('Comparaison between SIFT descriptors with nbins = %d, nori = %d ',options.nbins , options.nori) ,'fontname' , 'times' , 'fontsize' , 13 ,  'fontweight','bold')
+
+
+co                   = co + 1;
+
+
+%%
+
+I                     = imread(fullfile(core_dir , '02769_Right_StudentOffice.jpeg'));
+
+figure(co)
+imagesc(I)
+title('Color Image example' ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Extract SIFT over (4x4x8 bins
+% from patches (16 x 16) regulary sampled from I with scale = 1.2.
+% Opponent color projection is used
+% sift are L2-clamp normalized
+%
+%
+%%
+
+options.deltax                       = 22;
+options.deltay                       = 22;
+options.color                        = 3;
+options.nori                         = 8;
+options.alpha                        = 9;
+options.nbins                        = 4;
+options.patchsize                    = 16;
+options.norm                         = 4;
+options.clamp                        = 0.2;
+
+options.sigma_edge                   = 1.2;
+[options.kernely , options.kernelx]  = gen_dgauss(options.sigma_edge);
+options.weightx                      = gen_weight(options.patchsize , options.nbins);
+options.weighty                      = options.weightx';
+
+[dsift , infodsift]                  = denseSIFT(I , options ); 
+
+half                                 = options.patchsize/2;
+xr                                   = [infodsift(2, :)-half ; infodsift(2, :)-half ; infodsift(2, :)+ half ; infodsift(2, :)+ half ; infodsift(2, :)-half] + 1.5;
+yr                                   = [infodsift(1, :)-half ; infodsift(1, :)+half ; infodsift(1, :)+ half ; infodsift(1, :)- half ; infodsift(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+plot(infodsift(2 , :)+1.5 , infodsift(1 , :)+1.5 , 'r+')
+plot(xr , yr , 'b')
+hold off
+title(sprintf('Location of %dx%d=%d SIFT patches of size = %dx%d' , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dsift)
+title(sprintf('Color SIFT (Opponnent) descriptors with nbins = %d, nori = %d ',options.nbins , options.nori) ,'fontname' , 'times' , 'fontsize' , 13 ,  'fontweight','bold')
+h=ylabel('bins');
+set(h,'fontsize',12,'fontweight','bold')
+co                   = co + 1;
+%%
+
+##### SOURCE END #####
+--></body></html>

@@ -1,0 +1,368 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>demo_denseCOLOR</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2010-12-11"><meta name="m-file" content="demo_denseCOLOR"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% denseCOLOR compute histogram of color projection on a regular dense grid</span>
+<span class="comment">%</span>
+<span class="comment">% Usage</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">% [dcolor , infodcolor] = denseCOLOR(I , [options] );</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% I                                     Input image (ny x nx x [3]) in UINT8 format.</span>
+<span class="comment">%</span>
+<span class="comment">% options</span>
+<span class="comment">% 	   scale                          Scaling vector (1 x nscale). Extract descriptors at different scaling of the image (default scale = [1]).</span>
+<span class="comment">% 	   sigma_scale                    Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)(default sigma_scale = 0.6)</span>
+<span class="comment">% 	   deltax                         Division step in the x-axis for the grid (default deltax = floor(nx*min(scale)))</span>
+<span class="comment">% 	   deltay                         Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))</span>
+<span class="comment">%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent (dimcolor = 3),</span>
+<span class="comment">%                                       4 : nOpponent (dimcolor = 2), 5 : Hue (dimcolor = 1)</span>
+<span class="comment">% 	   nbins                          Number of bins for histograms (default nbins = 32)</span>
+<span class="comment">% 	   patchsize                      Size of the patch where the descriptor is computed (default patchsize = nbins/2 )</span>
+<span class="comment">% 	   norm                           Normalization : norm = 0 &lt;=&gt; no normalization, norm = 1 &lt;=&gt; v=v/(sum(v)+epsi), norm = 2 &lt;=&gt; v=v/sqrt(sum(v&sup2;)+epsi&sup2;),</span>
+<span class="comment">% 	                                  norm = 3 &lt;=&gt; v=sqrt(v/(sum(v)+epsi)) , norm = 3 &lt;=&gt; L2-clamped (default norm = 1)</span>
+<span class="comment">% 	   clamp                          Clamping value (default clamp = 0.2)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Outputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% dcolor                                COLOR descriptors (nbins x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">% infodcolor                            COLOR descriptors informations(4 x nb_pts)   where nb_pts = deltax*deltay*nscale*dimcolor</span>
+<span class="comment">%                                       infodcolor(1,i) = y</span>
+<span class="comment">% 									  infodcolor(2,i) = x</span>
+<span class="comment">% 									  infodcolor(3,i) = scale</span>
+<span class="comment">% 									  infodcolor(4,i) = color</span>
+<span class="comment">% 									  infodcolor(5,i) = nyscale</span>
+<span class="comment">% 									  infodcolor(6,i) = nxscale</span>
+</pre><pre class="codeinput">clc,close <span class="string">all</span>, clear <span class="string">all</span>,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , <span class="string">'core'</span>);
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , <span class="string">'image_0174.jpg'</span>));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title(<span class="string">'Gray Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseCOLOR_01.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Extract Histogram of gray pixels over 16 bins</span>
+<span class="comment">% from patches (20 x 20) regulary sampled from I.</span>
+<span class="comment">% Histograms are L1-normalized</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+options.deltax                       = 10;
+options.deltay                       = 10;
+options.nbins                        = 16;
+options.patchsize                    = 20;
+options.norm                         = 1;
+
+
+[dcolor , infodcolor]                = denseCOLOR(I , options );
+
+half                                 = infodcolor(7, :)/2;
+xr                                   = [infodcolor(2, :)-half ; infodcolor(2, :)-half ; infodcolor(2, :)+ half ; infodcolor(2, :)+ half ; infodcolor(2, :)-half] + 1.5;
+yr                                   = [infodcolor(1, :)-half ; infodcolor(1, :)+half ; infodcolor(1, :)+ half ; infodcolor(1, :)- half ; infodcolor(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold <span class="string">on</span>
+plot(infodcolor(2 , :)+1.5 , infodcolor(1 , :)+1.5 , <span class="string">'r+'</span>)
+plot(xr , yr , <span class="string">'b'</span>)
+hold <span class="string">off</span>
+title(sprintf(<span class="string">'Location of %dx%d=%d patches of size = %dx%d'</span> , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dcolor)
+title(sprintf(<span class="string">'Histograms of gray pixels with nbins = %d'</span>,options.nbins) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 ,  <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+h=ylabel(<span class="string">'bins'</span>);
+set(h,<span class="string">'fontsize'</span>,12,<span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseCOLOR_02.png" alt=""> <img vspace="5" hspace="5" src="demo_denseCOLOR_03.png" alt=""> <pre class="codeinput">I                     = imread(fullfile(core_dir , <span class="string">'02769_Right_StudentOffice.jpeg'</span>));
+
+figure(co)
+imagesc(I)
+title(<span class="string">'Color Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_denseCOLOR_04.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Extract Histogram of color pixels with Opponent projection</span>
+<span class="comment">% over 32 bins from patches (24 x 24) regulary sampled from I.</span>
+<span class="comment">% I is scaled with 3 differents factor.</span>
+<span class="comment">% Histograms are L2-clamp normalized</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+options.scale                        = [0.5 , 0.75 , 1];
+options.sigma_scale                  = 0.6;
+options.deltax                       = 10;
+options.deltay                       = 10;
+options.color                        = 3;
+options.nbins                        = 32;
+options.patchsize                    = 28;
+options.norm                         = 4;
+options.clamp                        = 0.2;
+
+
+[dcolor , infodcolor]                 = denseCOLOR(I , options );
+
+half                                 = infodcolor(7, :)/2;
+xr                                   = [infodcolor(2, :)-half ; infodcolor(2, :)-half ; infodcolor(2, :)+ half ; infodcolor(2, :)+ half ; infodcolor(2, :)-half] + 1.5;
+yr                                   = [infodcolor(1, :)-half ; infodcolor(1, :)+half ; infodcolor(1, :)+ half ; infodcolor(1, :)- half ; infodcolor(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+hold <span class="string">on</span>
+plot(infodcolor(2 , :)+1.5 , infodcolor(1 , :)+1.5 , <span class="string">'r+'</span>)
+plot(xr , yr , <span class="string">'b'</span>)
+hold <span class="string">off</span>
+title(sprintf(<span class="string">'Location of %dx%dx%d=%d patches of size = \\{%d,%d,%d\\}^2'</span> , options.deltay,options.deltax,length(options.scale),options.deltay*options.deltax*length(options.scale),options.patchsize*options.scale(1),options.patchsize*options.scale(2),options.patchsize*options.scale(3)) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dcolor)
+h=ylabel(<span class="string">'bins'</span>);
+set(h,<span class="string">'fontsize'</span>,12,<span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+title(sprintf(<span class="string">'Histograms of color pixels (Opponent projection) with nbins = %d'</span>,options.nbins) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13 , <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+</pre><img vspace="5" hspace="5" src="demo_denseCOLOR_05.png" alt=""> <img vspace="5" hspace="5" src="demo_denseCOLOR_06.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+% denseCOLOR compute histogram of color projection on a regular dense grid
+% 
+% Usage
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% 
+% [dcolor , infodcolor] = denseCOLOR(I , [options] );
+% 
+% 
+% Inputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% I                                     Input image (ny x nx x [3]) in UINT8 format. 
+% 
+% options
+% 	   scale                          Scaling vector (1 x nscale). Extract descriptors at different scaling of the image (default scale = [1]).
+% 	   sigma_scale                    Scaling factor to obtain the standard deviation of the Gaussian filter (sigma = sigma_scale/scale)(default sigma_scale = 0.6)
+% 	   deltax                         Division step in the x-axis for the grid (default deltax = floor(nx*min(scale))) 
+% 	   deltay                         Division step in the y-axis for the grid (default deltay = floor(ny*min(scale)))
+%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent (dimcolor = 3), 
+%                                       4 : nOpponent (dimcolor = 2), 5 : Hue (dimcolor = 1)
+% 	   nbins                          Number of bins for histograms (default nbins = 32)
+% 	   patchsize                      Size of the patch where the descriptor is computed (default patchsize = nbins/2 )	  
+% 	   norm                           Normalization : norm = 0 <=> no normalization, norm = 1 <=> v=v/(sum(v)+epsi), norm = 2 <=> v=v/sqrt(sum(v²)+epsi²), 
+% 	                                  norm = 3 <=> v=sqrt(v/(sum(v)+epsi)) , norm = 3 <=> L2-clamped (default norm = 1)
+% 	   clamp                          Clamping value (default clamp = 0.2)
+% 
+% 
+% Outputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% dcolor                                COLOR descriptors (nbins x nb_pts) where nb_pts = deltax*deltay*nscale*dimcolor
+% infodcolor                            COLOR descriptors informations(4 x nb_pts)   where nb_pts = deltax*deltay*nscale*dimcolor
+%                                       infodcolor(1,i) = y
+% 									  infodcolor(2,i) = x
+% 									  infodcolor(3,i) = scale
+% 									  infodcolor(4,i) = color
+% 									  infodcolor(5,i) = nyscale
+% 									  infodcolor(6,i) = nxscale
+
+%%
+clc,close all, clear all,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , 'core');
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , 'image_0174.jpg'));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title('Gray Image example' ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Extract Histogram of gray pixels over 16 bins
+% from patches (20 x 20) regulary sampled from I.
+% Histograms are L1-normalized
+%
+%
+
+options.deltax                       = 10;
+options.deltay                       = 10;
+options.nbins                        = 16;
+options.patchsize                    = 20;
+options.norm                         = 1;
+
+
+[dcolor , infodcolor]                = denseCOLOR(I , options ); 
+
+half                                 = infodcolor(7, :)/2;
+xr                                   = [infodcolor(2, :)-half ; infodcolor(2, :)-half ; infodcolor(2, :)+ half ; infodcolor(2, :)+ half ; infodcolor(2, :)-half] + 1.5;
+yr                                   = [infodcolor(1, :)-half ; infodcolor(1, :)+half ; infodcolor(1, :)+ half ; infodcolor(1, :)- half ; infodcolor(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+colormap(gray)
+hold on
+plot(infodcolor(2 , :)+1.5 , infodcolor(1 , :)+1.5 , 'r+')
+plot(xr , yr , 'b')
+hold off
+title(sprintf('Location of %dx%d=%d patches of size = %dx%d' , options.deltay,options.deltax,options.deltay*options.deltax,options.patchsize,options.patchsize) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dcolor)
+title(sprintf('Histograms of gray pixels with nbins = %d',options.nbins) ,'fontname' , 'times' , 'fontsize' , 13 ,  'fontweight','bold')
+h=ylabel('bins');
+set(h,'fontsize',12,'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+
+
+I                     = imread(fullfile(core_dir , '02769_Right_StudentOffice.jpeg'));
+
+figure(co)
+imagesc(I)
+title('Color Image example' ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%
+%
+% Extract Histogram of color pixels with Opponent projection
+% over 32 bins from patches (24 x 24) regulary sampled from I.
+% I is scaled with 3 differents factor. 
+% Histograms are L2-clamp normalized
+%
+%
+
+options.scale                        = [0.5 , 0.75 , 1];
+options.sigma_scale                  = 0.6;
+options.deltax                       = 10;
+options.deltay                       = 10;
+options.color                        = 3;
+options.nbins                        = 32;
+options.patchsize                    = 28;
+options.norm                         = 4;
+options.clamp                        = 0.2;
+
+
+[dcolor , infodcolor]                 = denseCOLOR(I , options ); 
+
+half                                 = infodcolor(7, :)/2;
+xr                                   = [infodcolor(2, :)-half ; infodcolor(2, :)-half ; infodcolor(2, :)+ half ; infodcolor(2, :)+ half ; infodcolor(2, :)-half] + 1.5;
+yr                                   = [infodcolor(1, :)-half ; infodcolor(1, :)+half ; infodcolor(1, :)+ half ; infodcolor(1, :)- half ; infodcolor(1, :)-half] + 1.5;
+
+
+figure(co)
+imagesc(I)
+hold on
+plot(infodcolor(2 , :)+1.5 , infodcolor(1 , :)+1.5 , 'r+')
+plot(xr , yr , 'b')
+hold off
+title(sprintf('Location of %dx%dx%d=%d patches of size = \\{%d,%d,%d\\}^2' , options.deltay,options.deltax,length(options.scale),options.deltay*options.deltax*length(options.scale),options.patchsize*options.scale(1),options.patchsize*options.scale(2),options.patchsize*options.scale(3)) ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+co                   = co + 1;
+
+
+figure(co)
+imagesc(dcolor)
+h=ylabel('bins');
+set(h,'fontsize',12,'fontweight','bold')
+title(sprintf('Histograms of color pixels (Opponent projection) with nbins = %d',options.nbins) ,'fontname' , 'times' , 'fontsize' , 13 , 'fontweight','bold')
+
+%%
+
+
+
+##### SOURCE END #####
+--></body></html>

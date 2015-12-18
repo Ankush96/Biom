@@ -1,0 +1,356 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>demo_mlhoee_spyr</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2010-12-11"><meta name="m-file" content="demo_mlhoee_spyr"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% Multi-Level of Color Histogram of Oriented Edge Energy with Spatial Pyramid</span>
+<span class="comment">%</span>
+<span class="comment">% Usage</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">% H = mlhoee_spyr(I , [options] );</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs</span>
+<span class="comment">% -------</span>
+<span class="comment">%</span>
+<span class="comment">% I                                     Input image (ny x nx x [3]) in UINT8 format.</span>
+<span class="comment">%</span>
+<span class="comment">% options</span>
+<span class="comment">%        spyr                           Spatial Pyramid (nspyr x 4) (default [1 , 1 , 1 , 1] with nspyr = 1)</span>
+<span class="comment">%                                       where spyr(i,1) is the ratio of ny in y axis of the blocks at level i (by(i) = spyr(i,1)*ny)</span>
+<span class="comment">%                                       where spyr(i,2) is the ratio of ny in y axis of the shifting at level i (deltay(i) = spyr(i,2)*ny)</span>
+<span class="comment">%                                       where spyr(i,3) is the ratio of nx in x axis of the blocks at level i (bx(i) = spyr(i,3)*nx)</span>
+<span class="comment">%                                       where spyr(i,3) is the ratio of nx in x axis of the shifting at level i (deltax(i) = spyr(i,4)*nx)</span>
+<span class="comment">%</span>
+<span class="comment">%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent color (dimcolor = 3),</span>
+<span class="comment">%                                       4 : nOpponent color (dimcolor = 2), 5 : Hue  (dimcolor = 1)</span>
+<span class="comment">%</span>
+<span class="comment">%        norma                          Gradient normalization block size (default norma = [1 , 1] of the orginal image size)</span>
+<span class="comment">% 	   kernelx                        Kernel in x-direction for computing the gradient (default kernelx = [-0.5 , 0 , 0.5])</span>
+<span class="comment">% 	   kernely                        Kernel in y-direction for computing the gradient (default kernely = [-0.5 ; 0 ; 0.5])</span>
+<span class="comment">%        bndori                         bndori = 0 &lt;=&gt; angle in [-pi/2 , pi/2[), bndori = 1 angle in [-pi , pi[</span>
+<span class="comment">% 	   nori                           Number of orientation (default nori = 9)</span>
+<span class="comment">% 	   norm                           Normalization : norm = 0 &lt;=&gt; no normalization, norm = 1 &lt;=&gt; v=v/(sum(v)+epsi), norm = 2 &lt;=&gt; v=v/sqrt(sum(v&sup2;)+epsi&sup2;),</span>
+<span class="comment">% 	                                  norm = 3 &lt;=&gt; v=sqrt(v/(sum(v)+epsi)) , norm = 4 &lt;=&gt; L2-clamped (default norm = 1)</span>
+<span class="comment">%        interpolate                    Interpolate lineary values of energy : 1 if interpolate, 0 else (default = 1)</span>
+<span class="comment">% 	   clamp                          Clamping value (default clamp = 0.2)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">% Output</span>
+<span class="comment">% ------</span>
+<span class="comment">%</span>
+<span class="comment">% H                                     mlhoee_spyr features (nH*nori*dimcolor x 1) in double format where nH is the total number of subwindows defined</span>
+<span class="comment">%                                       by the spatial pyramid spyr, i.e. nH = sum(floor(((1 - spyr(:,1))./(spyr(:,3)) + 1)).*floor((1 - spyr(:,2))./(spyr(:,4)) + 1)).</span>
+<span class="comment">%</span>
+<span class="comment">% Reference :   [1] Subhransu Maji and Alexander C. Berg and Jitendra Malik, "Classification Using Intersection Kernel Support Vector Machines is efficient"</span>
+<span class="comment">% ---------         In Proceedings, CVPR 2008, Anchorage, Alaska</span>
+</pre><pre class="codeinput">clc,close <span class="string">all</span>, clear <span class="string">all</span>,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , <span class="string">'core'</span>);
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , <span class="string">'image_0174.jpg'</span>));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title(<span class="string">'Gray Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhoee_spyr_01.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% Simple Histogram of LSD (without normalization)</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+
+H                     = mlhoee_spyr(I);
+
+figure(co)
+plot(H , <span class="string">'linewidth'</span>,2)
+axis([0.5 , length(H)+0.5 , 0 , 1.2*max(H)]);
+title(<span class="string">'Histogram of Oriented Edge Energy'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhoee_spyr_02.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% A 4 level spatial pyramid (overlapping (50%) subwindows for the 2th,Eth,4th levels)</span>
+<span class="comment">% 9 bins for encoding orientation.</span>
+<span class="comment">% Histograms are normalized with a L2-clamped norm</span>
+<span class="comment">%</span>
+
+options.spyr          = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8 ; 1/8 , 1/8 , 1/16 , 1/16];
+options.norma         = [1/16 , 1/16];
+options.kernelx       = [-0.5 , 0 , 0.5];
+options.kernely       = [-0.5 ; 0 ; 0.5];
+options.nori          = 9;
+options.bndori        = 1;
+options.norm          = 4;
+options.clamp         = 0.4;
+
+
+nS                    = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+H                     = mlhoee_spyr(I , options);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf(<span class="string">'Histograms of OEE with 4 levels SP, nS = %d'</span>, nS) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhoee_spyr_03.png" alt=""> <pre class="codeinput">I                     = imread(fullfile(core_dir , <span class="string">'02769_Right_StudentOffice.jpeg'</span>));
+
+figure(co)
+imagesc(I)
+title(<span class="string">'Color Image example'</span> ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhoee_spyr_04.png" alt=""> <pre class="codeinput"><span class="comment">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%</span>
+<span class="comment">%</span>
+<span class="comment">% A 4 level spatial pyramid (overlapping (50%) subwindows for the 2th,Eth,4th levels)</span>
+<span class="comment">% 9 bins for encoding orientation. Opponent color projection is used</span>
+<span class="comment">% Histograms are normalized with a L1 norm</span>
+<span class="comment">%</span>
+
+options.spyr          = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8 ; 1/8 , 1/8 , 1/16 , 1/16];
+options.norma         = [1/32 , 1/32];
+options.kernelx       = [-0.5 , 0 , 0.5];
+options.kernely       = [-0.5 ; 0 ; 0.5];
+options.color         = 3;
+options.nori          = 9;
+options.bndori        = 1;
+options.norm          = 1;
+options.interpolate   = 1;
+
+
+nS                    = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+H                     = mlhoee_spyr(I , options);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf(<span class="string">'Histograms of OEE with 4 levels SP, nS = %d'</span>, nS) ,<span class="string">'fontname'</span> , <span class="string">'times'</span> , <span class="string">'fontsize'</span> , 13, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>)
+
+co                   = co + 1;
+</pre><img vspace="5" hspace="5" src="demo_mlhoee_spyr_05.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+% Multi-Level of Color Histogram of Oriented Edge Energy with Spatial Pyramid
+% 
+% Usage
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% 
+% H = mlhoee_spyr(I , [options] );
+% 
+% 
+% Inputs
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+% 
+% I                                     Input image (ny x nx x [3]) in UINT8 format. 
+% 
+% options
+%        spyr                           Spatial Pyramid (nspyr x 4) (default [1 , 1 , 1 , 1] with nspyr = 1)
+%                                       where spyr(i,1) is the ratio of ny in y axis of the blocks at level i (by(i) = spyr(i,1)*ny)
+%                                       where spyr(i,2) is the ratio of ny in y axis of the shifting at level i (deltay(i) = spyr(i,2)*ny)
+%                                       where spyr(i,3) is the ratio of nx in x axis of the blocks at level i (bx(i) = spyr(i,3)*nx)
+%                                       where spyr(i,3) is the ratio of nx in x axis of the shifting at level i (deltax(i) = spyr(i,4)*nx)
+% 
+%        color                          0 : force gray-scale (dimcolor = 1, default), 1 : RGB (dimcolor = 3), 2 : nRGB (dimcolor = 3), 3 : Opponent color (dimcolor = 3), 
+%                                       4 : nOpponent color (dimcolor = 2), 5 : Hue  (dimcolor = 1)
+% 
+%        norma                          Gradient normalization block size (default norma = [1 , 1] of the orginal image size)
+% 	   kernelx                        Kernel in x-direction for computing the gradient (default kernelx = [-0.5 , 0 , 0.5])
+% 	   kernely                        Kernel in y-direction for computing the gradient (default kernely = [-0.5 ; 0 ; 0.5])
+%        bndori                         bndori = 0 <=> angle in [-pi/2 , pi/2[), bndori = 1 angle in [-pi , pi[
+% 	   nori                           Number of orientation (default nori = 9)
+% 	   norm                           Normalization : norm = 0 <=> no normalization, norm = 1 <=> v=v/(sum(v)+epsi), norm = 2 <=> v=v/sqrt(sum(v²)+epsi²), 
+% 	                                  norm = 3 <=> v=sqrt(v/(sum(v)+epsi)) , norm = 4 <=> L2-clamped (default norm = 1)
+%        interpolate                    Interpolate lineary values of energy : 1 if interpolate, 0 else (default = 1)
+% 	   clamp                          Clamping value (default clamp = 0.2)
+% 
+% 
+% Output
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% 
+% H                                     mlhoee_spyr features (nH*nori*dimcolor x 1) in double format where nH is the total number of subwindows defined
+%                                       by the spatial pyramid spyr, i.e. nH = sum(floor(((1 - spyr(:,1))./(spyr(:,3)) + 1)).*floor((1 - spyr(:,2))./(spyr(:,4)) + 1)).
+%
+% Reference :   [1] Subhransu Maji and Alexander C. Berg and Jitendra Malik, "Classification Using Intersection Kernel Support Vector Machines is efficient"
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-         In Proceedings, CVPR 2008, Anchorage, Alaska
+
+%%
+clc,close all, clear all,drawnow
+rootbase_dir         = pwd;
+core_dir             = fullfile(pwd , 'core');
+addpath(core_dir)
+
+co                   = 1;
+
+
+I                     = imread(fullfile(core_dir , 'image_0174.jpg'));
+
+figure(co)
+imagesc(I)
+colormap(gray)
+title('Gray Image example' ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 1 %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Simple Histogram of LSD (without normalization)
+%
+%
+
+H                     = mlhoee_spyr(I);
+
+figure(co)
+plot(H , 'linewidth',2)
+axis([0.5 , length(H)+0.5 , 0 , 1.2*max(H)]);
+title('Histogram of Oriented Edge Energy' ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 2 %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% A 4 level spatial pyramid (overlapping (50%) subwindows for the 2th,Eth,4th levels)
+% 9 bins for encoding orientation.
+% Histograms are normalized with a L2-clamped norm
+%
+
+options.spyr          = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8 ; 1/8 , 1/8 , 1/16 , 1/16];
+options.norma         = [1/16 , 1/16];
+options.kernelx       = [-0.5 , 0 , 0.5];
+options.kernely       = [-0.5 ; 0 ; 0.5];
+options.nori          = 9;
+options.bndori        = 1;
+options.norm          = 4;
+options.clamp         = 0.4;
+
+
+nS                    = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+H                     = mlhoee_spyr(I , options);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf('Histograms of OEE with 4 levels SP, nS = %d', nS) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+
+co                   = co + 1;
+
+%%
+
+I                     = imread(fullfile(core_dir , '02769_Right_StudentOffice.jpeg'));
+
+figure(co)
+imagesc(I)
+title('Color Image example' ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+co                   = co + 1;
+
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Example 3 %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% A 4 level spatial pyramid (overlapping (50%) subwindows for the 2th,Eth,4th levels)
+% 9 bins for encoding orientation. Opponent color projection is used
+% Histograms are normalized with a L1 norm
+%
+
+options.spyr          = [1 , 1 , 1 , 1 ; 1/2 , 1/2 , 1/4 , 1/4 ; 1/4 , 1/4 , 1/8 , 1/8 ; 1/8 , 1/8 , 1/16 , 1/16];
+options.norma         = [1/32 , 1/32];
+options.kernelx       = [-0.5 , 0 , 0.5];
+options.kernely       = [-0.5 ; 0 ; 0.5];
+options.color         = 3;
+options.nori          = 9;
+options.bndori        = 1;
+options.norm          = 1;
+options.interpolate   = 1;
+
+
+nS                    = sum(floor(((1 - options.spyr(:,1))./(options.spyr(:,3)) + 1)).*floor((1 - options.spyr(:,2))./(options.spyr(:,4)) + 1));
+
+
+
+H                     = mlhoee_spyr(I , options);
+
+figure(co)
+plot(1:length(H) , H)
+axis([0 , length(H)+1 , min(H) , max(H)*1.2])
+title(sprintf('Histograms of OEE with 4 levels SP, nS = %d', nS) ,'fontname' , 'times' , 'fontsize' , 13, 'fontweight','bold')
+
+co                   = co + 1;
+
+%%
+
+##### SOURCE END #####
+--></body></html>
