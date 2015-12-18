@@ -24,10 +24,10 @@ train_labels = labels(train);
 test_images = images(test);
 test_labels = labels(test);
 
-numClusters = 128;
+numClusters = 4;
 %% Training
 [train_features, train_feat_index, class_index] = mult_descriptors(train_images, train_labels);
-[train_histograms, Centers] = gen_hist(train_images, numClusters, train_features, train_feat_index);
+[train_histograms, Centers] = gen_hist(train_images, numClusters, train_features, train_feat_index, class_index, numDir);
 
 %% Testing
 test_histograms = zeros(length(test_images), numClusters);
@@ -36,8 +36,7 @@ for i = 1:length(test_images)
     fprintf('Image number %d / %d \n', i, length(test_images));
     test_images(i)
     img = imread(char(test_images(i)));
-    [f,~] = descriptors(img);   
-    f = double(f)./255;
+    [f,~] = descriptors(img); 
     idx = knnsearch(Centers, f);
     hist_image = hist(idx, numClusters);
     hist_image = hist_image/sum(hist_image);

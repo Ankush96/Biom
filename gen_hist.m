@@ -1,4 +1,4 @@
-function [histograms, Centers] = gen_hist(train_images, numClusters, features, index)
+function [histograms, Centers] = gen_hist(train_images, numClusters, features, index, class_index, numDir)
 
 histograms = zeros(length(train_images), numClusters);
 
@@ -7,8 +7,15 @@ histograms = zeros(length(train_images), numClusters);
 %[idx, Centers] = kmeans(features, numCLusters, 'EmptyAction', 'singleton', 'replicates',5);
 %fprintf('Calculating Histograms of each image...\n');
 
-%% Running LBG for quantisation
-Centers = vqlbg(features', numClusters)';
+%% Running LBG for quantisation and finding clusters among classes
+Centers = [];
+
+for i = 1:numDir
+    f = features(class_index(i):class_index(i+1)-1,:);
+    c = vqlbg(f',numClusters)';
+    Centers = [Centers; c];
+end
+
 if sum(sum(isnan(Centers))) >0
     fprintf('Nan in Centres\n');
 end

@@ -29,7 +29,7 @@ for i = 1:length(train_images)
     % If the Euclidean distance of a particular descriptor from all other
     % descriptors is very high, we assume it is an outlier and reject it
     
-    thresh = 3e-3; % Distance threshold for rejecting a descriptor
+    thresh = 2e-3; % Distance threshold for rejecting a descriptor
     %fprintf('Calculated descriptors for image of size %d %d\n', size(f));
     
     if labels(i) ==labels(i+1)
@@ -71,7 +71,7 @@ for i = 1:length(train_images)
         end
         % Empty the matrix
         fprintf('Final features retained %d\n',class_index(end) - class_index(end-1));
-               
+        %fprintf('Image_index- %d Class_index - %d\n',image_index(end),class_index(end));       
         class_features = [];
             
 
@@ -89,7 +89,6 @@ for i = 1:length(train_images)
         fprintf(']\n');
     end
     % ------------------------------------------------------
-    fprintf('Image_index- %d Class_index - %d\n',image_index(end),class_index(end));
-        
+       
 end
-fprintf('Final descriptors of size %d %d\n', size(features));
+fprintf('Final descriptor matrix of size %d %d\n', size(features));
